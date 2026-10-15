@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3026/api';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://119.59.102.161:3026/api';
 const FONT_FAMILY = Platform.select({
   web: 'Leelawadee UI, Segoe UI, Tahoma, Arial, sans-serif',
   default: 'sans-serif',
