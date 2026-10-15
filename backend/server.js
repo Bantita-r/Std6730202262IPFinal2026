@@ -6,7 +6,7 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 
 const app = express();
-const PORT = Number(process.env.PORT || 3000);
+const PORT = Number(process.env.PORT || 3026);
 const DEMO_TOKEN = 'mock-jwt-token';
 const EMPLOYEE_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS employees (
@@ -18,15 +18,25 @@ const EMPLOYEE_TABLE_SQL = `
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 `;
 
-const db = mysql.createPool({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT || 3306),
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  connectionLimit: 5,
-  waitForConnections: true,
-});
+const databaseSettings = [process.env.DB_HOST, process.env.DB_USER, process.env.DB_NAME];
+const hasDatabaseSettings = databaseSettings.some(Boolean);
+const databaseConfigured = databaseSettings.every(Boolean);
+if (hasDatabaseSettings && !databaseConfigured) {
+  throw new Error('Set DB_HOST, DB_USER, and DB_NAME together, or omit them to use demo data.');
+}
+
+const db = databaseConfigured
+  ? mysql.createPool({
+      host: process.env.DB_HOST,
+      port: Number(process.env.DB_PORT || 3306),
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      connectionLimit: 5,
+      waitForConnections: true,
+    })
+  : null;
+let inMemoryEmployees = [];
 
 app.use(cors());
 app.use(express.json({ limit: '32kb' }));
@@ -68,6 +78,18 @@ async function migrateEmployeeColumns() {
 
 
 async function initializeDatabase() {
+  if (!db) {
+    inMemoryEmployees = [
+      { id: '1', name: 'John Doe', position: 'Software Engineer', status: 'Active', salary: 45000 },
+      { id: '2', name: 'Jane Smith', position: 'HR Manager', status: 'Active', salary: 65000 },
+      { id: '3', name: 'Alex Brown', position: 'Designer', status: 'On Leave', salary: 35000 },
+      { id: '4', name: 'Sam Lee', position: 'Accountant', status: 'Active', salary: 45000 },
+      { id: '5', name: 'Maya Chen', position: 'Project Manager', status: 'Active', salary: 85000 },
+    ];
+    console.log('Using in-memory demo employees.');
+    return;
+  }
+
   await db.query(EMPLOYEE_TABLE_SQL);
   await migrateEmployeeColumns();
   const [[{ count }]] = await db.query('SELECT COUNT(*) AS count FROM employees');
@@ -96,6 +118,7 @@ app.post('/api/login', (request, response) => {
 });
 
 app.get('/api/employees', requireAuth, async (request, response) => {
+  if (!db) return response.json(inMemoryEmployees);
   try {
     const [rows] = await db.query('SELECT `BanRat_id` AS id, `BanRat_name` AS name, `BanRat_position` AS position, `BanRat_status` AS status, `BanRat_salary` AS salary FROM employees ORDER BY `BanRat_id`');
     return response.json(rows.map(toEmployee));
@@ -115,7 +138,18 @@ app.post('/api/employees', requireAuth, async (request, response) => {
     return sendError(response, 400, 'Name, position, and non-negative numeric salary are required');
   }
 
-  try {
+    try {
+    if (!db) {
+      const employee = {
+        id: String(inMemoryEmployees.reduce((max, item) => Math.max(max, Number(item.id)), 0) + 1),
+        name: name.trim(),
+        position: position.trim(),
+        status: 'Active',
+        salary,
+      };
+      inMemoryEmployees.push(employee);
+      return response.status(201).json(employee);
+    }
     const [result] = await db.execute(
       'INSERT INTO employees (`BanRat_name`, `BanRat_position`, `BanRat_salary`) VALUES (?, ?, ?)',
       [name.trim(), position.trim(), salary],
@@ -139,7 +173,13 @@ app.put('/api/employees/:id/status', requireAuth, async (request, response) => {
     return sendError(response, 400, 'Status must be Active or On Leave');
   }
 
-  try {
+    try {
+    if (!db) {
+      const employee = inMemoryEmployees.find((item) => item.id === String(request.params.id));
+      if (!employee) return sendError(response, 404, 'Employee not found');
+      employee.status = status;
+      return response.json(employee);
+    }
     const [result] = await db.execute(
       'UPDATE employees SET `BanRat_status` = ? WHERE `BanRat_id` = ?',
       [status, request.params.id],
@@ -158,7 +198,13 @@ app.put('/api/employees/:id/status', requireAuth, async (request, response) => {
 });
 
 app.delete('/api/employees/:id', requireAuth, async (request, response) => {
-  try {
+    try {
+    if (!db) {
+      const index = inMemoryEmployees.findIndex((item) => item.id === String(request.params.id));
+      if (index < 0) return sendError(response, 404, 'Employee not found');
+      inMemoryEmployees.splice(index, 1);
+      return response.json({ success: true });
+    }
     const [result] = await db.execute(
       'DELETE FROM employees WHERE `BanRat_id` = ?',
       [request.params.id],
@@ -215,9 +261,10 @@ function kMeans(values, k = 3) {
 }
 
 app.get('/api/employees/salary-clusters', requireAuth, async (request, response) => {
-  try {
-    const [rows] = await db.query('SELECT `BanRat_salary` AS salary FROM employees');
-    if (rows.length < 3) return sendError(response, 400, 'At least 3 employees are required');
+    try {
+    const rows = db
+      ? (await db.query('SELECT BanRat_salary AS salary FROM employees'))[0]
+      : inMemoryEmployees.map((employee) => ({ salary: employee.salary }));if (rows.length < 3) return sendError(response, 400, 'At least 3 employees are required');
 
     const salaries = rows.map((row) => Number(row.salary));
     const clusters = kMeans(salaries);
