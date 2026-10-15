@@ -1,47 +1,34 @@
 # HR Manager & Salary Analytics System
 
-An Expo web app and Express API for employee management and salary analytics.
+Clone the project, then run the backend and frontend in two terminals. No MySQL setup or environment files are needed for the demo.
 
-## Run after cloning
-
-Prerequisite: Node.js 22.13 or newer.
-
-Clone the public repository, then run the backend and frontend in separate terminals:
+## 1. Clone
 
     git clone https://github.com/Bantita-r/Std6730202262IPFinal-2026.git
     cd Std6730202262IPFinal-2026
 
-### Terminal 1: backend
+## 2. Start the backend
+
+In the first terminal:
 
     cd backend
-    Copy-Item .env.example .env
     npm install
     npm start
 
-By default, the backend starts on port 3026 and loads five sample employees into memory. No MySQL server or private credentials are needed. Create, update-status, delete, and salary-cluster features work with this demo data. Changes reset when the backend restarts.
+The backend starts on port 3026 and uses five sample employees in memory.
 
-### Terminal 2: frontend
+## 3. Start the website
+
+In a second terminal, from the project folder:
 
     cd frontend
-    Copy-Item .env.example .env
     npm install
     npm run web
 
-Open http://localhost:8081 and sign in with:
+Open http://localhost:8081 and sign in with username admin and password password123. Create, change status, and delete employees from the website.
 
-- Username: admin
-- Password: password123
+Demo changes reset when the backend restarts.
 
-## Use MyPHP instead of demo data
+## MyPHP database (optional)
 
-To connect to MyPHP, add DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, and DB_NAME to backend/.env. The backend then creates or migrates the employees table and uses MySQL. Never commit .env files; they contain credentials.
-
-The required table structure is in backend/schema.sql. It uses BanRat_id, BanRat_name, BanRat_position, BanRat_status, and BanRat_salary. The backend inserts the sample employees only if the table is empty.
-
-## Optional: serve a built website from the backend
-
-The backend can also serve a production web build from backend/public. Set EXPO_PUBLIC_API_URL to the public backend URL before building, then run this in frontend:
-
-    npm run build:web
-
-Upload the contents of frontend/dist to backend/public on the server and restart the backend.
+To use MyPHP instead of demo data, set the DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, and DB_NAME environment values for the backend. The table structure is in backend/schema.sql. Never commit private .env files.
