@@ -1,3 +1,4 @@
+const path = require('path');
 require('dotenv').config();
 
 const cors = require('cors');
@@ -232,6 +233,13 @@ app.get('/api/employees/salary-clusters', requireAuth, async (request, response)
   }
 });
 
+const frontendDirectory = path.join(__dirname, 'public');
+app.use(express.static(frontendDirectory));
+app.get(/^(?!\/api(?:\/|$)).*/, (_request, response, next) => {
+  response.sendFile(path.join(frontendDirectory, 'index.html'), (error) => {
+    if (error) next();
+  });
+});
 async function startServer() {
   try {
     await initializeDatabase();
